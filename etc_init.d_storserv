@@ -1,0 +1,72 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          storserv
+# Required-Start:    $local_fs $remote_fs $network $syslog
+# Required-Stop:     $local_fs $remote_fs $network $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start/stop storserv python persitent object storage system
+### END INIT INFO
+#
+# storserv              This init.d script is used to start storserv.
+#                       It basically just calls storserv.
+
+STORSERV_PATH=/usr/local/SnakeCharmer/6.0/storserv.py
+
+ls $STORSERV_PATH
+if [ -x $STORSERV_PATH ] ; then
+	HAVE_STORSERV=1
+else
+	echo "Can't find storserv"
+	exit 0
+fi
+
+. /lib/lsb/init-functions
+
+pidof_storserv() {
+	# if pidof is null for some reasons the script exits automagically
+	# classified as good/unknown feature
+	PIDS=`pgrep -f "python3 $STORSERV_PATH"` || true
+        echo $PIDS
+	return 0
+}
+
+
+case $1 in
+	start)
+		log_daemon_msg "Starting persitent storage" "storserv"
+                echo
+		$STORSERV_PATH >> /var/log/storserv.out 2>> /var/log/storserv.err &
+	;;
+	stop)
+		log_daemon_msg "Stopping persitent storage" "storserv"
+                echo
+		kill $(pidof_storserv)
+	;;
+	restart)
+		log_daemon_msg "Stopping persitent storage" "storserv"
+                echo
+		kill $(pidof_storserv)
+		log_daemon_msg "Starting persitent storage" "storserv"
+		$STORSERV_PATH >> /var/log/storserv.out 2>> /var/log/storserv.err &
+	;;
+	status)
+		PID=$(pidof_storserv)
+		if [ -n "$PID" ]; then
+			log_success_msg "storserv is running (pid $PID)."
+                        echo
+                	exit 0
+	        else
+	                log_failure_msg "storserv is not running."
+                        echo
+	                exit 1
+	        fi
+
+	;;
+	*)
+		log_success_msg "Usage: /etc/init.d/storserv {start|stop|restart|status}"
+                echo
+		exit 1
+        ;;
+esac
+

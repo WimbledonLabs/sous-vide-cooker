@@ -1,0 +1,49 @@
+def edit( self, req ):
+  try:
+    from urllib.parse import unquote_plus;
+    
+    attr = self.__container__.Methods.make_path( req.storage, req.form['path'] );
+    data_type = type( attr );
+
+    isMethod = False;
+
+    if data_type.__name__ in ['Object', 'List', 'Dict']:
+      req.content_type = 'text/plain';
+      req.content = 'Cannot edit that type of object.';
+      return;
+
+    #If the method is being edited, modify the method_text within it
+    elif data_type.__name__ == 'Method':
+      parent = attr;
+      attr = attr.method_text;
+      data_type = type( attr );
+      attr_name = 'method_text';
+      isMethod = True;
+
+    else:
+      # paths end with /, so partitioning needs to happen twice
+      parent = self.__container__.Methods.make_path( req.storage, req.form['path'].rpartition('/')[0].rpartition('/')[0] );
+      attr_name = req.form['path'].split('/')[-2]
+
+    #Set the attribute to the given value
+    if isinstance(parent, Object):
+      setattr( parent, attr_name, data_type( unquote_plus(req.form['data']) ) );
+
+    elif isinstance(parent, Dict):
+      parent[attr_name] = data_type( unquote_plus(req.form['data']) );
+
+    elif isinstance(parent, List):
+      parent[ int( attr_name.split('_')[-1] ) ] = data_type( unquote_plus(req.form['data']) );
+
+    #Compile modified method
+    if isMethod:
+      parent.compile();
+      if parent.errors:
+        req.content = 'Error: ' + parent.errors.replace('\n', '%0D' );
+        return;
+
+    req.content = 'Edit successful.'
+
+  except ValueError as BadInput:
+    req.content_type = 'text/plain';
+    req.content = 'Error: ' + repr(BadInput);

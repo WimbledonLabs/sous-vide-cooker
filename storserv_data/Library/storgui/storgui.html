@@ -1,0 +1,639 @@
+<html>
+	<head>
+		<title>storgui</title>
+		<script type="text/javascript">
+cwd = '';
+prevFolder = ''; 
+
+function log(output)
+{
+	document.getElementById('terminal').innerHTML += output.replace(/ /g, '&nbsp').replace(/%0D/gi,'<br />') + '<br />';
+	document.getElementById('terminal').scrollTop += 10000;
+}
+
+function partitionLast(delimeter, instr)
+{
+	var splitstr = instr.split(delimeter);
+
+	var output = splitstr[0];
+
+	for (var i=1; i<(splitstr.length-1); i++)
+	{
+		output += delimeter+splitstr[i];
+	}
+
+	return output;
+
+}
+
+function testPage()
+{
+	var frame = document.createElement('iframe');
+	frame.src = '/' + (cwd + '/' + document.getElementById('selected').sg_name).split('/').slice(4).join('/');
+	frame.id = 'testframe'; 
+
+	var cancel_button = document.createElement('input');
+	cancel_button.type = 'button';
+	cancel_button.value = 'Cancel';
+
+	cancel_button.onclick = function ()
+	{
+		getAttributes( cwd );
+		document.getElementById('terminal').style.height = '40%';
+		file_area.style.height = '50%';
+	}
+
+	file_area = document.getElementById('file_area');
+
+	while (file_area.hasChildNodes())
+	{
+		file_area.removeChild(file_area.firstChild);
+	}
+
+	file_area.appendChild(frame);
+	file_area.appendChild(cancel_button);
+
+	document.getElementById('terminal').style.height = '10%';
+	file_area.style.height = '80%';
+}
+
+function run( textbox )
+{
+	var args = textbox.value;
+
+	var output = encodeURIComponent(args);
+
+	var xmlhttp = new XMLHttpRequest();
+
+	xmlhttp.onreadystatechange=function()
+	{
+		if (xmlhttp.readyState==4 && xmlhttp.status==200)
+		{
+			log(xmlhttp.responseText);
+    		}
+		else if (xmlhttp.readyState==4 && xmlhttp.status==404)
+		{
+			log('run: Server error 404');
+		}
+  	}
+
+	xmlhttp.open("GET","https://0.0.0.0:8001/storgui/Scripts/run?args=" + output, true);
+
+	xmlhttp.send();
+
+	textbox.value = '';
+
+}
+
+function getAttributes(path)
+{
+	var xmlhttp = new XMLHttpRequest();
+
+	xmlhttp.onreadystatechange=function()
+	{
+		if (xmlhttp.readyState==4 && xmlhttp.status==200)
+		{
+//Attributes are returned as comma separated values in name:type pairs ie:
+//Server:Object,Permissions:Dict,Library:Object,test:int
+
+			if (xmlhttp.responseText[0] == '!')
+			{
+				log('cd: ' + xmlhttp.responseText.substring(1) )
+				return;
+			}
+
+			file_area = document.getElementById('file_area');
+
+			while (file_area.hasChildNodes())
+			{
+				file_area.removeChild(file_area.firstChild);
+			}
+//Clears files browser area.
+
+			var pairs
+
+			if (xmlhttp.responseText != '')
+			{
+				pairs = xmlhttp.responseText.split(',')
+			}
+			else
+			{
+				pairs = []
+			}
+
+			if (newcwd != '')
+			{
+				var icon_cont = document.createElement('div');
+				var icon_img = document.createElement('img');
+
+				icon_cont.className = 'icon';
+
+				icon_cont.onclick = selectIcon;
+
+				icon_cont.ondblclick = function()
+				{
+					getAttributes(prevFolder);
+				}
+
+				icon_img.src = '/storgui/Object.png'
+
+				icon_cont.innerHTML = '<br />' + '..';
+				icon_cont.insertBefore(icon_img, icon_cont.firstChild);
+
+				file_area.appendChild(icon_cont);
+			}
+
+			for (var i=0; i<pairs.length; i++)
+			{
+				var item = pairs[i].split(':');
+
+				var icon_cont = document.createElement('div');
+				var icon_img = document.createElement('img');
+
+				icon_cont.className = 'icon';
+				icon_cont.sg_name = item[0];
+				icon_cont.sg_type = item[1];
+
+				icon_cont.onclick = selectIcon;
+				
+				if (item[1]=='Object' || item[1]=='Method' || item[1]=='List' || item[1]=='Dict' || item[1]=='tuple')
+				{
+					icon_cont.ondblclick = function()
+					{
+						getAttributes(cwd + '/' + this.sg_name);
+					}
+				}
+
+				icon_img.src = '/storgui/' + item[1] + '.png'
+
+				icon_cont.innerHTML = '<br />' + item[0];
+				icon_cont.insertBefore(icon_img, icon_cont.firstChild);
+
+				file_area.appendChild(icon_cont);
+			}
+
+			cwd = newcwd;
+			prevFolder = partitionLast('/', cwd);
+
+    		}
+  	}
+
+	if (path === undefined || path == '')
+	{
+		xmlhttp.open("GET","https://0.0.0.0:8001/storgui/Scripts/cd",true);
+		log('cd: /');
+		newcwd = '';
+	}
+
+	else
+	{
+		xmlhttp.open("GET","https://0.0.0.0:8001/storgui/Scripts/cd?path="+path,true);
+		log('cd: ' + path);
+		newcwd = path;
+	}
+
+	xmlhttp.send();
+}
+
+function delAttribute()
+{
+	var xmlhttp = new XMLHttpRequest();
+
+	item = document.getElementById('selected')
+
+	if(!item.sg_name)
+	{
+		log('rm: Cannot remove current working directory.')
+	}
+
+	if (item == undefined)
+	{
+		log('rm: No item selected.')
+		return;
+	}
+
+	xmlhttp.onreadystatechange=function()
+	{
+		if (xmlhttp.readyState==4 && xmlhttp.status==200)
+		{
+			log('rm: '+xmlhttp.responseText);
+			getAttributes(cwd);
+    		}
+		else if (xmlhttp.readyState==4 && xmlhttp.status==404)
+		{
+			log('rm: Deletion failed.');
+		}
+  	}
+
+	xmlhttp.open("GET","https://0.0.0.0:8001/storgui/Scripts/rm?path="+cwd+"&name="+item.sg_name, true);
+
+	xmlhttp.send();
+}
+
+function makeAttribute(type, name)
+{
+	var xmlhttp = new XMLHttpRequest();
+
+	xmlhttp.onreadystatechange=function()
+	{
+		if (xmlhttp.readyState==4 && xmlhttp.status==200)
+		{
+			log('make: '+xmlhttp.responseText);
+			getAttributes(cwd);
+    		}
+		else if (xmlhttp.readyState==4 && xmlhttp.status==404)
+		{
+			log('make: Server error 404');
+		}
+  	}
+
+	xmlhttp.open("GET","https://0.0.0.0:8001/storgui/Scripts/make?path="+cwd+"&type="+type+"&name="+name, true);
+
+	xmlhttp.send();
+}
+
+function setAttribute()
+{
+	text_area = document.getElementById('text_area');
+
+	var xmlhttp = new XMLHttpRequest();
+
+	xmlhttp.onreadystatechange=function()
+	{
+
+		if (xmlhttp.readyState==4 && xmlhttp.status==200)
+		{
+			log('edit: '+xmlhttp.responseText);
+			if (xmlhttp.responseText.substr(0,6) != 'Error:')
+			{
+				getAttributes(cwd);
+			}
+    		}
+
+		else if (xmlhttp.readyState==4 && xmlhttp.status==404)
+		{
+			log('edit: Server error 404');
+		}
+  	}
+
+	xmlhttp.open("GET","https://0.0.0.0:8001/storgui/Scripts/edit?path=" + text_area.item_path + "&data=" + encodeURIComponent(text_area.value), true);
+	log('edit: Sent data.')
+
+	xmlhttp.send();
+}
+
+function getValue( path )
+{
+	var xmlhttp = new XMLHttpRequest();
+
+	xmlhttp.onreadystatechange=function()
+	{
+		if (xmlhttp.readyState==4 && xmlhttp.status==200)
+		{
+			document.getElementById('text_area').value = xmlhttp.responseText;
+    		}
+		else if (xmlhttp.readyState==4 && xmlhttp.status==404)
+		{
+			log('edit: Server error 404');
+		}
+  	}
+
+	xmlhttp.open("GET","https://0.0.0.0:8001/storgui/Scripts/getValue?path="+path, true);
+
+	xmlhttp.send();	
+}
+
+function make()
+{
+	var type_ele = document.getElementById('make_type');
+	var name_ele = document.getElementById('make_name');
+
+	var type = type_ele.children[type_ele.selectedIndex].value;
+
+	var name = name_ele.value;
+
+	if (name == '')
+	{
+		log('make: No name specified.');
+		return;
+	}
+
+	makeAttribute(type, name);
+}
+
+function edit()
+{
+	var file_area = document.getElementById('file_area');
+	var item = document.getElementById('selected');
+
+	var path;
+
+	if (item.sg_type == 'Object' || item.sg_type == 'List' || item.sg_type == 'Dict')
+	{
+		log('edit: Cannot edit '+item.sg_type+'-type objects');
+		return;
+	}
+
+		path = cwd + '/' + item.sg_name;
+
+	while (file_area.hasChildNodes())
+	{
+		file_area.removeChild(file_area.firstChild);
+	}
+
+	var text_area = document.createElement('textarea');
+	text_area.id = 'text_area';
+	text_area.item_path = path;
+	text_area.setAttribute('wrap', 'off');
+
+	text_area.onscroll = function ()
+	{
+		document.getElementById('line_text_area').scrollTop = document.getElementById('text_area').scrollTop;	
+	};
+
+	var line_text_area = document.createElement('textarea');
+	line_text_area.id = 'line_text_area';
+	line_text_area.cols = 5;
+	line_text_area.readOnly = true;
+
+	line_text_area.innerHTML = '1\n';
+
+	for (var i = 2; i < 2000; i++)
+	{
+		line_text_area.innerHTML += i+'\n';
+	}
+
+	line_text_area.innerHTML += 'Wow, this is really big. No more line numbers.';
+
+	var save_button = document.createElement('input');
+	save_button.type = 'button';
+	save_button.value = 'Save';
+
+	save_button.onclick = function ()
+	{
+		var text_area = document.getElementById('text_area');
+		setAttribute( text_area.path, text_area.value );
+	}
+
+	var cancel_button = document.createElement('input');
+	cancel_button.type = 'button';
+	cancel_button.value = 'Cancel';
+
+	cancel_button.onclick = function ()
+	{
+		getAttributes( cwd );
+	}
+
+	file_area.appendChild(line_text_area);
+	file_area.appendChild(text_area);
+
+	text_area.style.width = text_area.parentNode.offsetWidth-line_text_area.offsetWidth-20;
+
+	file_area.appendChild(save_button);
+	file_area.appendChild(cancel_button);
+
+	getValue( path );
+}
+
+function toggleDisplay(elementid)
+{
+	element = document.getElementById(elementid);
+
+	if (element.style.display == 'none')
+	{
+		element.style.display = 'block';
+		
+	}
+
+	else
+	{
+		element.style.display = 'none';
+	}
+	
+}
+
+function hideDisplay(elementid)
+{
+	element = document.getElementById(elementid);
+
+	element.style.display = 'none';
+}
+
+function showDisplay(elementid)
+{
+	element = document.getElementById(elementid);
+
+	element.style.display = 'block';
+}
+
+function selectIcon(element)
+{
+	var old_selected_icon = document.getElementById('selected');
+
+	if (old_selected_icon != null)
+	{
+		old_selected_icon.id = '';
+	}
+
+	element.id = 'selected';
+}
+
+function selectIcon()
+{
+	var old_selected_icon = document.getElementById('selected');
+
+	if (old_selected_icon != null)
+	{
+		old_selected_icon.id = '';
+	}
+
+	this.id = 'selected';
+}
+		</script>
+		<style type="text/css">
+body
+{
+	//background-color: #ddd;
+
+	padding: 0;
+	margin: 0;
+	width: 100%;
+	height: 100%;
+
+	font-family: sans-serif;
+}
+
+.menu_bar
+{
+	background-color: #333;
+	width: 100%;
+	border-bottom: solid 2px #FFA523;
+	padding-top: 0.25em;
+	padding-bottom: 0.25em;
+}
+
+.menu_item
+{
+	color: #F0E0E0;
+	
+	padding-left: 1em;
+	padding-right: 1em;
+}
+
+.menu_item:hover, .submenu_item:hover
+{
+	color: #FFFFFF;
+	background-color: #FFA523;
+
+	border-radius: 6px;
+}
+
+#file_menu, #edit_menu, #help_menu, #make_menu
+{
+	background-color: #333;
+	width: 200px;
+
+	padding: 10px;
+	border-bottom-right-radius: 10px;
+	border-bottom-left-radius: 10px;
+
+	position: fixed;
+}
+
+.submenu_item
+{
+	color: #F0E0E0;
+	padding-left: 6px;
+	margin-bottom: 0.25em;
+}
+
+#file_area
+{
+	height: 50%;
+	overflow-y: scroll;
+}
+
+#text_area
+{
+	height: 90%;
+	white-space = pre;
+	overflow-x: hidden;
+}
+
+#line_text_area
+{
+	height: 90%;
+	overflow-y: hidden;
+}
+
+.icon
+{
+	float: left;
+	padding: 20px;
+	text-align: center;
+
+	border: solid 3px #FFFFFF;
+}
+
+#selected
+{
+	border: solid 3px #5555dd;
+	background-color:  #aaaadd
+}
+
+#terminal
+{
+	color: #F0E0E0;
+	background-color: #111;
+	padding: 1%;
+
+	font-family: Courier New;
+
+	height: 40%;
+	overflow: scroll;
+
+	white-space: pre;
+}
+
+#testframe
+{
+	height: 85%;
+	width: 100%;
+
+	border-bottom: solid 2px #FFA523;
+	border-left: none;
+	border-top: none;
+	border-right: none;
+}
+		</style>
+	</head>
+	<body onload="getAttributes()">
+<!--====Menu Bar============================================================-->
+		<div class="menu_bar">
+			<span class="menu_item" onclick="toggleDisplay('file_menu'); hideDisplay('edit_menu'); hideDisplay('help_menu');">
+				File
+			</span>
+			<span class="menu_item" onclick="hideDisplay('file_menu'); toggleDisplay('edit_menu'); hideDisplay('help_menu');">
+				Edit
+			</span>
+			<span class="menu_item" onclick="hideDisplay('file_menu'); hideDisplay('edit_menu'); toggleDisplay('help_menu')">
+				Help
+			</span>
+		</div>
+
+<!--====Sub Menus===========================================================-->
+		<div id="file_menu" onclick="toggleDisplay('file_menu')" style="display: none">
+			<div class="submenu_item">Make</div>
+			<div class="submenu_item" onclick="getAttributes()">Root Directory</div>
+			<div class="submenu_item" onclick="testPage()">Test Page</div>
+			<div class="submenu_item">Cancel</div>
+		</div>
+		<div id="edit_menu" onclick="toggleDisplay('edit_menu')" style="display: none">
+			<div class="submenu_item" onclick="edit()">Edit</div>
+			<div class="submenu_item" onclick="showDisplay('make_bar')">Make</div>
+			<div class="submenu_item" onclick="delAttribute()">Delete</div>
+			<div class="submenu_item">Cancel</div>
+		</div>
+		<div id="help_menu" onclick="toggleDisplay('help_menu')" style="display: none">
+			<div class="submenu_item" onclick="showDisplay('login_bar')">Login</div>
+			<div class="submenu_item">About</div>
+			<div class="submenu_item">Help Page</div>
+			<div class="submenu_item">Cancel</div>
+		</div>
+		<div class="menu_bar" id="make_bar" style="display: none; padding-left: 10px;">
+			<select id="make_type">
+				<option value="Object">Object</option>
+				<option value="Method">Method</option>
+				<option value="Dict">Dict</option>
+				<option value="List">List</option>
+
+				<option value="None"></option>
+
+				<option value="str">String</option>
+				<option value="int">Int</option>
+				<option value="bool">Bool</option>
+				<option value="float">Float</option>
+				<option value="long">Long</option>
+				<option value="None">None Type</option>
+			</select>
+			<input type="text" id="make_name" />
+			<input type="button" value="Make" onclick="make()" />
+			<input type="button" value="Cancel" onclick="hideDisplay('make_bar'); document.getElementById('make_name').value=''" />
+		</div>
+		<div class="menu_bar" id="login_bar" style="display: none; padding-left: 10px;">
+			<form action="/Scripts/login/py" method="POST" style="margin-bottom: 0em;">
+				<input type="text" name="username" />
+				<input type="password" name="password" />
+				<input type="hidden" name="path" value="/storgui/storgui.html" />
+				<input type="submit" value="Login" />
+				<input type="button" value="Cancel" onclick="hideDisplay('login_bar');" />
+			</form>
+
+		</div>
+		<div id="file_area">
+		</div>
+		<div id="terminal">Output Terminal
+</div>
+		<input type="text" id="input_terminal" onkeydown="if (event.keyCode == 13) run(this)"/><input type="button" value="Run" onclick="run(this.previousSibling);" />
+	</body>
+</html>

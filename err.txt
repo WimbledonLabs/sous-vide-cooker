@@ -1,0 +1,15 @@
+################################################################################
+SnakeCharmer/6.0alpha (3485), (C) 2012
+  https://www.kremer.ca/svn/Repository/Projects/SnakeCharmer/6.0/SnakeCharmer.py
+  SVN Revision: 3485 (Thu, 28 Jun 2012, 12:14:24 [stephen])
+################################################################################
+Traceback (most recent call last):
+  File "/usr/local/SnakeCharmer/6.0/SnakeCharmer.py", line 713, in <module>
+    httpd = SecureSnakeCharmerServer(server_address, SnakeCharmerHandler);
+  File "/usr/local/SnakeCharmer/6.0/SnakeCharmer.py", line 255, in __init__
+    self.server_bind();
+  File "/usr/local/lib/python3.3/http/server.py", line 135, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/usr/local/lib/python3.3/socketserver.py", line 441, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 99] Cannot assign requested address
