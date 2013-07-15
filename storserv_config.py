@@ -21,7 +21,7 @@ RUN_PATH         = "/var/run/storserv";
 SOCKET_PATH      = os.path.join(RUN_PATH,"storserv.socket");
 PID_FILE         = os.path.join(RUN_PATH,"storserv.pid");
 
-DATA_PATH        = "/usr/local/SnakeCharmer/6.0/storserv_data";
+DATA_PATH        = "/home/stephen/sous-vide/storserv_data";
 
 USERNAME         = "pstorage";
 MAX_MESSAGE_SIZE = 32768;

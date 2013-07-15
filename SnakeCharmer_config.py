@@ -16,4 +16,4 @@ cookie_expiration = ONE_DAY;    # expires values of HTML cookie
 				# Note that the hashID associated with cookie
 				# may expire sooner.
 
-fpem = '/usr/local/SnakeCharmer/6.0/server.pem';
+fpem = 'server.pem';
